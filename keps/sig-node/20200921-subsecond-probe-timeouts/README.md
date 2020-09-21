@@ -3,18 +3,11 @@
 
 To get started with this template:
 
-- [ ] **Pick a hosting SIG.**
+- [ ] **Pick a hosting SIG.** sig-node
   Make sure that the problem space is something the SIG is interested in taking
   up. KEPs should not be checked in without a sponsoring SIG.
-- [ ] **Create an issue in kubernetes/enhancements**
-  When filing an enhancement tracking issue, please make sure to complete all
-  fields in that template. One of the fields asks for a link to the KEP. You
-  can leave that blank until this KEP is filed, and then go back to the
-  enhancement and add the link.
+- [ ] **Create an issue in kubernetes/enhancements** is https://github.com/kubernetes/kubernetes/issues/76951
 - [ ] **Make a copy of this template directory.**
-  Copy this template into the owning SIG's directory and name it
-  `NNNN-short-descriptive-title`, where `NNNN` is the issue number (with no
-  leading-zero padding) assigned to your enhancement above.
 - [ ] **Fill out as much of the kep.yaml file as you can.**
   At minimum, you should fill in the "Title", "Authors", "Owning-sig",
   "Status", and date-related fields.
@@ -58,22 +51,11 @@ If none of those approvers are still appropriate, then changes to that list
 should be approved by the remaining approvers and/or the owning SIG (or
 SIG Architecture for cross-cutting KEPs).
 -->
-# KEP-NNNN: Your short, descriptive title
+# KEP-20200921: Subsecond Probe Timeouts
 
+Probe timeouts are limited to 
 <!--
-This is the title of your KEP. Keep it short, simple, and descriptive. A good
-title can help communicate what the KEP is and should be considered as part of
-any review.
--->
-
-<!--
-A table of contents is helpful for quickly jumping to sections of a KEP and for
-highlighting any additional information provided beyond the standard KEP
-template.
-
-Ensure the TOC is wrapped with
-  <code>&lt;!-- toc --&rt;&lt;!-- /toc --&rt;</code>
-tags, and then generate with `hack/update-toc.sh`.
+Generate TOC with `hack/update-toc.sh`.
 -->
 
 <!-- toc -->
@@ -165,6 +147,9 @@ updates.
 [documentation style guide]: https://github.com/kubernetes/community/blob/master/contributors/guide/style-guide.md
 -->
 
+The Probe struct contains int32 fields that specify seconds for timeouts.
+Some users would like to have timeouts less than one second.
+
 ## Motivation
 
 <!--
@@ -176,12 +161,18 @@ demonstrate the interest in a KEP within the wider Kubernetes community.
 [experience reports]: https://github.com/golang/go/wiki/ExperienceReports
 -->
 
+Istio
+
 ### Goals
 
 <!--
 List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
+An ability to specify timeouts that are less than one second.
+Add additional tests cases to the timeout test cases.
+
+? link to existing test cases ?
 
 ### Non-Goals
 
@@ -189,6 +180,10 @@ know that this has succeeded?
 What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+V2 API for existing objects.
+Converting fields from int32 to resource.Quantity.
+Subsecond resolution less than one millisecond.
 
 ## Proposal
 
@@ -199,6 +194,7 @@ you're proposing, but should not include things like API designs or
 implementation. The "Design Details" section below is for the real
 nitty-gritty.
 -->
+Add a new int32 field to existing Probe struct for timeoutSeconds that exists of timeoutMilliseconds.
 
 ### User Stories (Optional)
 
@@ -209,9 +205,7 @@ the system. The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-#### Story 1
-
-#### Story 2
+#### Knative
 
 ### Notes/Constraints/Caveats (Optional)
 
@@ -236,6 +230,14 @@ How will UX be reviewed, and by whom?
 Consider including folks who also work outside the SIG or subproject.
 -->
 
+Accidentally setting a timeout too low could DOS kubelet if many are used.
+Mitigate by preventing timeout values too small.
+Could be configurable,
+10-100milliseconds is a first guess.
+
+UX reviewed by existing users of Probe struct.
+? add details on who that is?
+
 ## Design Details
 
 <!--
@@ -244,6 +246,52 @@ change are understandable. This may include API specs (though not always
 required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
+
+Existing Struct 
+https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/types.go
+https://github.com/kubernetes/kubernetes/blob/9983a521149a0de02a052658a9d3665ff7b27708/pkg/apis/core/types.go#L2010-L2029
+
+```
+// Probe describes a health check to be performed against a container to determine whether it is
+// alive or ready to receive traffic.
+type Probe struct {
+	// The action taken to determine the health of a container
+	Handler
+	// Length of time before health checking is activated.  In seconds.
+	// +optional
+	InitialDelaySeconds int32
+	// Length of time before health checking times out.  In seconds.
+	// +optional
+	TimeoutSeconds int32
+	// How often (in seconds) to perform the probe.
+	// +optional
+	PeriodSeconds int32
+	// Minimum consecutive successes for the probe to be considered successful after having failed.
+	// Must be 1 for liveness and startup.
+	// +optional
+	SuccessThreshold int32
+	// Minimum consecutive failures for the probe to be considered failed after having succeeded.
+	// +optional
+	FailureThreshold int32
+}
+```
+
+Adds fields
+```
+	// Length of time before health checking is activated.  In milliseconds.
+	// +optional
+	InitialDelayMilliseconds int32
+	// Length of time before health checking times out.  In milliseconds.
+	// +optional
+	TimeoutMilliseconds int32
+	// How often (in milliseconds) to perform the probe.
+	// +optional
+	PeriodMillieconds int32
+```
+
+Logic for existing users of 'Seconds' fields is changed to 
+add seconds duration to milliseconds duration
+before using calculated duration.
 
 ### Test Plan
 
@@ -264,6 +312,10 @@ when drafting this test plan.
 
 [testing-guidelines]: https://git.k8s.io/community/contributors/devel/sig-testing/testing.md
 -->
+
+existing node-e2e test 
+`/home/mhb/go/src/k8s.io/kubernetes/test/e2e_node/startup_probe_test.go`
+Enhanced with additional test cases.
 
 ### Graduation Criteria
 
