@@ -53,7 +53,7 @@ SIG Architecture for cross-cutting KEPs).
 -->
 # KEP-20200921: Subsecond Probe Timeouts
 
-Probe timeouts are limited to 
+Probe timeouts are limited to seconds and that does NOT work well for clients looking for finer and coarser grained timeouts. 
 <!--
 Generate TOC with `hack/update-toc.sh`.
 -->
@@ -279,6 +279,8 @@ type Probe struct {
 }
 ```
 
+Existing Behavior
+
 Taking the Seconds fields, in order of the struct.
 InitialDelaySeconds
 TimeoutSeconds
@@ -311,7 +313,7 @@ Validation of fields, Must be non-negative, Zero or greater.
 
 ```
 
-What fields may be necessary to add?
+What fields may be necessary to add? 
 ```
 	// Length of time before health checking is activated.  In milliseconds.
 	// +optional
@@ -334,6 +336,12 @@ In isolation, each of the probes can independently be either on the scale of sec
 If a Milliseconds field is set, the Seconds field is completely ignored.
 
 
+Depending on the importance of the various probe settings,
+it may be best to focus on one field.
+The Probe.Period looks to be the most effective to focus on.
+Probe.Period describes the 'repeat-rate' for how often a probe will run.
+Where Probe.Timeout describes an endpoint for when to stop probing.
+Probe.InitialDelay describes how long to wait before starting, but can be set to zero.
 
 
 ### Test Plan
