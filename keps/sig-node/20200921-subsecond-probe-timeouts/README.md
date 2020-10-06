@@ -162,6 +162,7 @@ demonstrate the interest in a KEP within the wider Kubernetes community.
 -->
 
 Istio
+Knative
 
 ### Goals
 
@@ -336,7 +337,71 @@ In isolation, each of the probes can independently be either on the scale of sec
 If a Milliseconds field is set, the Seconds field is completely ignored.
 
 
-Depending on the importance of the various probe settings,
+
+Existing use of Probe struct fields.
+
+InitialDelaySeconds
+https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/kubelet/prober/worker.go#L225-L228
+```
+	// Probe disabled for InitialDelaySeconds.
+	if int32(time.Since(c.State.Running.StartedAt.Time).Seconds()) < w.spec.InitialDelaySeconds {
+		return true
+	}
+```
+
+TimeoutSeconds
+https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/kubelet/prober/prober.go#L156-L201
+```
+	timeout := time.Duration(p.TimeoutSeconds) * time.Second // XXXXXXXXXXXXXXXX
+```
+
+ProbeSeconds
+https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/kubelet/prober/worker.go#L127-L160
+```
+// run periodically probes the container.
+func (w *worker) run() {
+	probeTickerPeriod := time.Duration(w.spec.PeriodSeconds) * time.Second // XX
+
+
+	// If kubelet restarted the probes could be started in rapid succession.
+	// Let the worker wait for a random portion of tickerPeriod before probing.
+	time.Sleep(time.Duration(rand.Float64() * float64(probeTickerPeriod)))
+
+
+	probeTicker := time.NewTicker(probeTickerPeriod)
+
+
+	defer func() {
+		// Clean up.
+		probeTicker.Stop()
+		if !w.containerID.IsEmpty() {
+			w.resultsManager.Remove(w.containerID)
+		}
+
+
+		w.probeManager.removeWorker(w.pod.UID, w.container.Name, w.probeType)
+		ProberResults.Delete(w.proberResultsSuccessfulMetricLabels)
+		ProberResults.Delete(w.proberResultsFailedMetricLabels)
+		ProberResults.Delete(w.proberResultsUnknownMetricLabels)
+	}()
+
+
+probeLoop:
+	for w.doProbe() {
+		// Wait for next probe tick.
+		select {
+		case <-w.stopCh:
+			break probeLoop
+		case <-probeTicker.C:
+			// continue
+		}
+	}
+}
+```
+
+Summary 
+
+Depending on the importance of the various Probe settings,
 it may be best to focus on one field.
 The Probe.Period looks to be the most effective to focus on.
 Probe.Period describes the 'repeat-rate' for how often a probe will run.
