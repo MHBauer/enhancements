@@ -230,6 +230,9 @@ How will UX be reviewed, and by whom?
 Consider including folks who also work outside the SIG or subproject.
 -->
 
+Changing defaults is a strict no-go. 
+
+
 Accidentally setting a timeout too low could DOS kubelet if many are used.
 Mitigate by preventing timeout values too small.
 Could be configurable,
@@ -276,7 +279,39 @@ type Probe struct {
 }
 ```
 
-Adds fields
+Taking the Seconds fields, in order of the struct.
+InitialDelaySeconds
+TimeoutSeconds
+PeriodSeconds
+
+Defaulting logic
+ - InitialDelaySeconds, has no defaulting logic.
+ - TimeoutSeconds, defaults to 1 seconds if unset (which includes the explicitly set to 0 state).
+https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/apis/core/v1/defaults.go#L224-L226
+```
+ 	if obj.TimeoutSeconds == 0 {
+		obj.TimeoutSeconds = 1
+	}
+```
+ - Period Seconds is the biggest hurdle, but also the most useful.
+PeriodSeconds defaults to 10 seconds if unset (which includes the explicitly set to 0 state).
+https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/apis/core/v1/defaults.go#L227-L229
+```
+	if obj.PeriodSeconds == 0 {
+		obj.PeriodSeconds = 10
+	}
+```
+
+
+Validation of fields, Must be non-negative, Zero or greater.
+```
+	allErrs = append(allErrs, ValidateNonnegativeField(int64(probe.InitialDelaySeconds), fldPath.Child("initialDelaySeconds"))...)
+	allErrs = append(allErrs, ValidateNonnegativeField(int64(probe.TimeoutSeconds), fldPath.Child("timeoutSeconds"))...)
+	allErrs = append(allErrs, ValidateNonnegativeField(int64(probe.PeriodSeconds), fldPath.Child("periodSeconds"))...)
+
+```
+
+What fields may be necessary to add?
 ```
 	// Length of time before health checking is activated.  In milliseconds.
 	// +optional
@@ -286,12 +321,20 @@ Adds fields
 	TimeoutMilliseconds int32
 	// How often (in milliseconds) to perform the probe.
 	// +optional
-	PeriodMillieconds int32
+	PeriodMilliseconds int32
 ```
 
-Logic for existing users of 'Seconds' fields is changed to 
-add seconds duration to milliseconds duration
-before using calculated duration.
+What is the least logic that could be used? 
+Setting a value for PeriodMilliseconds overrides, completely, the value value of PeriodSeconds.
+Setting a value for TimeoutMilliseconds overrides, completely, the value value of TimeoutSeconds.
+Setting a value for InitialDelayMilliseconds overrides, completely, the value value of InitialDelaySeconds.
+
+
+In isolation, each of the probes can independently be either on the scale of seconds or milliseconds.
+If a Milliseconds field is set, the Seconds field is completely ignored.
+
+
+
 
 ### Test Plan
 
