@@ -196,6 +196,12 @@ implementation. The "Design Details" section below is for the real
 nitty-gritty.
 -->
 Add a new int32 field to existing Probe struct for timeoutSeconds that exists of timeoutMilliseconds.
+int32 data type is used for consistency with existing fields.
+Using the fully available range of an int32 with a maximum value of 2147483647 represents a value of ~24.8 days.
+If the Milliseconds variant of a field is set,
+use it in preference to the existing Seconds field,
+and completely ignore the value of the existing field.
+This behavior makes it strictly opt-in on setting a non-zero Milliseconds field.
 
 ### User Stories (Optional)
 
