@@ -250,6 +250,9 @@ UX reviewed by existing users of Probe struct.
 
 ## Design Details
 
+Potentially proposed changes:
+https://github.com/kubernetes/kubernetes/compare/master...MHBauer:probe-timeouts?expand=1
+
 <!--
 This section should contain enough information that the specifics of your
 change are understandable. This may include API specs (though not always
@@ -751,6 +754,11 @@ Major milestones might include:
 Why should this KEP _not_ be implemented?
 -->
 
+What do preexisting readers of the field do?
+They are not aware that they should ignore the seconds and use millis.
+To address this, we should set whole second probe value to the minimum allowed if milliseconds is set.
+
+
 ## Alternatives
 
 <!--
@@ -759,6 +767,53 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### Combine old and new fields
+
+Allow for 0 second Probe, with setting millisecond.
+
+Cons:
+Loosens validation. 
+
+### v2 api for probe.
+
+I think this means a v2 API for Container therefore Pod.
+This seems too invasive.
+
+All Seconds fields become resource.Quantity instead of int32. This supports subdivision in a single field.
+
+### OffsetMilliseconds
+
+Use a negative offset, and combine with the existing field.
+
+Example: 
+    Existing Field: int32 PeriodSeconds
+    New Field:      int32 PeriodOffsetMilliseconds
+    
+    If I want to set to 0.5 seconds, 500 milliseconds,
+    PeriodSeconds <= 10 & PeriodOffsetmilliseconds <= -9500
+    OR
+    PeriodSeconds <= 1 & PeriodOffsetmilliseconds <= -500
+    OR
+    PeriodSeconds unset, Default of 10, and PeriodOffsetmilliseconds <= -9500
+
+Detail:
+Same number of added fields.
+
+Pros:
+
+Cons:
+Complicated logic.
+Multiple ways to get same resulting time.
+Changing behavior in the future involves touching a lot of parts.
+
+### Reconcile seconds field to nearest whole second.
+    Minimum of 1 second remains.
+    Extra logic in defaulter to 
+
+Pros:
+Cons:
+
+
 ## Infrastructure Needed (Optional)
 
 <!--
@@ -766,3 +821,5 @@ Use this section if you need things from the project/SIG. Examples include a
 new subproject, repos requested, or GitHub details. Listing these here allows a
 SIG to get the process for these resources started right away.
 -->
+
+Usual infrastructure depending on the complexity of the test cases needed.
