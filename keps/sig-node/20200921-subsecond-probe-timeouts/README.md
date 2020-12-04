@@ -298,7 +298,11 @@ PeriodSeconds
 
 Defaulting logic
  - InitialDelaySeconds, has no defaulting logic.
- - TimeoutSeconds, defaults to 1 seconds if unset (which includes the explicitly set to 0 state).
+   Therefore it would get the golang defaulting logic, and default to 0.
+   There is no particular reason to have an initial delay that is millisecond based.
+   Timing is not a good way to do sequencing.
+   1 second, 2 seconds, etc.
+ - TimeoutSeconds, defaults to 1 seconds if unset (which includes the explicitly set to 0 state). This is the last ending time before the timeout fails. Slow Failures.
 https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/apis/core/v1/defaults.go#L224-L226
 ```
  	if obj.TimeoutSeconds == 0 {
@@ -306,7 +310,7 @@ https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d75
 	}
 ```
  - Period Seconds is the biggest hurdle, but also the most useful.
-PeriodSeconds defaults to 10 seconds if unset (which includes the explicitly set to 0 state).
+PeriodSeconds defaults to 10 seconds if unset (which includes the explicitly set to 0 state). Fast Successes.
 https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/apis/core/v1/defaults.go#L227-L229
 ```
 	if obj.PeriodSeconds == 0 {
@@ -361,7 +365,7 @@ https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d75
 TimeoutSeconds
 https://github.com/kubernetes/kubernetes/blob/e19964183377d0ec2052d1f1fa930c4d7575bd50/pkg/kubelet/prober/prober.go#L156-L201
 ```
-	timeout := time.Duration(p.TimeoutSeconds) * time.Second // XXXXXXXXXXXXXXXX
+	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 ```
 
 ProbeSeconds
@@ -415,7 +419,8 @@ it may be best to focus on one field.
 The Probe.Period looks to be the most effective to focus on.
 Probe.Period describes the 'repeat-rate' for how often a probe will run.
 Where Probe.Timeout describes an endpoint for when to stop probing.
-Probe.InitialDelay describes how long to wait before starting, but can be set to zero.
+Probe.InitialDelay describes how long to wait before starting,
+but can be set to zero.
 
 
 ### Test Plan
@@ -438,7 +443,7 @@ when drafting this test plan.
 [testing-guidelines]: https://git.k8s.io/community/contributors/devel/sig-testing/testing.md
 -->
 
-existing node-e2e test 
+Existing node-e2e test 
 `/home/mhb/go/src/k8s.io/kubernetes/test/e2e_node/startup_probe_test.go`
 Enhanced with additional test cases.
 
